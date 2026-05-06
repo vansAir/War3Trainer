@@ -1,5 +1,11 @@
-# War3Trainer(WarCraft III Trainer)
-主要在原版基础上修改了一下界面布局，去掉一些没必要的显示，其他的没动，详细到原作者[github](https://github.com/Still4/War3Trainer)查看
+<p align="center">
+    <a href="https://github.com/Hooliby/War3Trainer">
+        <img src="https://raw.githubusercontent.com/Hooliby/War3Trainer/refs/heads/master/War3Trainer/logo.png" />
+    </a>
+</p>
+
+<h1 align="center">War3Trainer</h1>
+<center>本程序在[GitHub](https://github.com/Still4/War3Trainer)基础上进行二次开发修改</center>
 
 ## 其他
 + 添加解除修改限制(平台部分地图属性会达到兆、京、垓、秭、穰、沟、极单位)，默认为 **7**，刚好是百万单位
@@ -23,6 +29,6 @@
 - 1.28（1.28.0.7205）
 - 1.28f（1.28.5.7680）
 
-## 注意
-**修改器只能单机起飞，不能多人运动** 
+## 一言：不能多人运动
+
 <img src="https://raw.githubusercontent.com/Hooliby/War3Trainer/refs/heads/master/Screenshot.png" width="500" height="600" alt="Screenshot">
