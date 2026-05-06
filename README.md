@@ -5,7 +5,7 @@
 </p>
 
 <h1 align="center">War3Trainer</h1>
-<center>本程序在 [GitHub](https://github.com/Still4/War3Trainer) 基础上进行二次开发修改</center>
+<center> 本程序在 [GitHub](https://github.com/Still4/War3Trainer) 基础上进行二次开发修改 </center>
 
 ## 其他
 + 添加解除修改限制(平台部分地图属性会达到兆、京、垓、秭、穰、沟、极单位)，默认为 **7**，刚好是百万单位
