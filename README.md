@@ -6,7 +6,7 @@
 
 # War3Trainer
 
-**本程序在 <a href="https://github.com/Still4/War3Trainer">Still4/War3Trainer</a> 基础上进行二次开发修改**
+**本仓库在 <a href="https://github.com/Still4/War3Trainer">Still4/War3Trainer</a> 基础上进行二次开发修改**
 
 <br>
 
@@ -15,12 +15,6 @@
 </div>
 
 ---
-
-## ✨ 新增与优化功能
-
-* **适配平台部分防守地图的超大属性（支持兆、京、垓、秭、穰、沟、极等单位）。默认上限值为 **7**（百万单位）。**
-* **新增快捷键，按下 `F5` 快速刷新数据，按下 `F6` 一键执行修改。**
-* **窗口总在最前**
 
 ## ⚠️ 注意事项
 
