@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
@@ -10,10 +11,19 @@ namespace War3Trainer
     {
         private GameContext _currentGameContext;
         private GameTrainer _mainTrainer;
+        private const string ImmortalButtonText = "我欲成仙,快乐齐天";
+        private const string AttackRateCaption = "攻击频率比";
+        private const string AttackAcquireRangeCaption = "主动攻击范围";
+        private const string AttackOneRangeCaption = "攻击① - 范围";
+        private const string AttackOneCooldownCaption = "攻击① - 间隔";
+        private readonly Dictionary<string, UInt32> _immortalAddresses = new Dictionary<string, UInt32>();
+        private System.Windows.Forms.Timer _immortalTimer;
+        private Button _immortalButton;
 
         public MainForm()
         {
             InitializeComponent();
+            ConfigureImmortalInterface();
         }
 
         private void FrmMain_Load(object sender, EventArgs e)
@@ -25,10 +35,40 @@ namespace War3Trainer
             catch
             {
                 ReportEnterDebugFailure();
+                if (_immortalButton != null)
+                    _immortalButton.Enabled = false;
                 return;
             }
 
-            FindGame();
+            SetImmortalStatus("等待启动");
+        }
+
+        private void ConfigureImmortalInterface()
+        {
+            SuspendLayout();
+
+            toolContainer.Visible = false;
+            splitMain.Visible = false;
+            Controls.Clear();
+
+            _immortalButton = new Button();
+            _immortalButton.Name = "cmdImmortal";
+            _immortalButton.Text = ImmortalButtonText;
+            _immortalButton.Dock = DockStyle.Fill;
+            _immortalButton.Font = new Font("Microsoft YaHei UI", 12F, FontStyle.Bold, GraphicsUnit.Point, ((byte)(134)));
+            _immortalButton.Click += cmdImmortal_Click;
+            Controls.Add(_immortalButton);
+
+            ClientSize = new Size(280, 80);
+            MinimumSize = new Size(296, 119);
+            MaximumSize = new Size(296, 119);
+            Text = ImmortalButtonText;
+
+            _immortalTimer = new System.Windows.Forms.Timer(components);
+            _immortalTimer.Interval = 1000;
+            _immortalTimer.Tick += ImmortalTimer_Tick;
+
+            ResumeLayout(false);
         }
 
         /************************************************************************/
@@ -274,44 +314,222 @@ namespace War3Trainer
             }
         }
 
+        private void cmdImmortal_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                StartImmortalMode();
+            }
+            catch (WindowsApi.BadProcessIdException ex)
+            {
+                StopImmortalMode();
+                ReportProcessIdFailure(ex.ProcessId);
+            }
+            catch (Exception ex)
+            {
+                StopImmortalMode();
+                ReportUnknownFailure(ex.Message);
+            }
+        }
+
+        private void StartImmortalMode()
+        {
+            StopImmortalMode();
+
+            FindGame();
+            if (_currentGameContext == null || _mainTrainer == null)
+                return;
+
+            ITrainerNode attackNode = GetFirstSelectedUnitAttackNode();
+            if (attackNode == null)
+            {
+                SetImmortalStatus("请先在游戏中选中至少一个单位");
+                return;
+            }
+
+            RememberImmortalAddresses(attackNode.NodeIndex);
+            if (!HasAllImmortalAddresses())
+            {
+                StopImmortalMode();
+                SetImmortalStatus("未找到完整战斗属性地址");
+                return;
+            }
+
+            ForceWriteImmortalValues();
+            _immortalTimer.Start();
+            SetImmortalStatus("已锁定第一个选中单位，每秒强制写入");
+        }
+
+        private void StopImmortalMode()
+        {
+            if (_immortalTimer != null)
+                _immortalTimer.Stop();
+            _immortalAddresses.Clear();
+        }
+
+        private ITrainerNode GetFirstSelectedUnitAttackNode()
+        {
+            ITrainerNode selectedUnitsNode = null;
+            foreach (ITrainerNode node in _mainTrainer.GetFunctionList())
+            {
+                if (node.NodeType == TrainerNodeType.AllSelectedUnits)
+                {
+                    selectedUnitsNode = node;
+                    break;
+                }
+            }
+
+            if (selectedUnitsNode == null)
+                return null;
+
+            ITrainerNode firstUnitNode = null;
+            foreach (ITrainerNode node in _mainTrainer.GetFunctionList())
+            {
+                if (node.NodeType == TrainerNodeType.OneSelectedUnit
+                    && node.ParentIndex == selectedUnitsNode.NodeIndex)
+                {
+                    firstUnitNode = node;
+                    break;
+                }
+            }
+
+            if (firstUnitNode == null)
+                return null;
+
+            foreach (ITrainerNode node in _mainTrainer.GetFunctionList())
+            {
+                if (node.NodeType == TrainerNodeType.AttackAttributes
+                    && node.ParentIndex == firstUnitNode.NodeIndex)
+                {
+                    SelectFunctionByNodeIndex(node.NodeIndex);
+                    return node;
+                }
+            }
+
+            return null;
+        }
+
+        private void SelectFunctionByNodeIndex(int nodeIndex)
+        {
+            TreeNode[] nodes = viewFunctions.Nodes.Find(nodeIndex.ToString(), true);
+            if (nodes.Length < 1)
+                return;
+
+            viewFunctions.SelectedNode = nodes[0];
+            SelectFunction(nodes[0]);
+        }
+
+        private void RememberImmortalAddresses(int attackNodeIndex)
+        {
+            _immortalAddresses.Clear();
+            foreach (IAddressNode addressLine in _mainTrainer.GetAddressList())
+            {
+                if (addressLine.ParentIndex != attackNodeIndex)
+                    continue;
+                if (addressLine.ValueType != AddressListValueType.Float)
+                    continue;
+
+                switch (addressLine.Caption)
+                {
+                    case AttackRateCaption:
+                    case AttackAcquireRangeCaption:
+                    case AttackOneRangeCaption:
+                    case AttackOneCooldownCaption:
+                        _immortalAddresses[addressLine.Caption] = addressLine.Address;
+                        break;
+                }
+            }
+        }
+
+        private bool HasAllImmortalAddresses()
+        {
+            return _immortalAddresses.ContainsKey(AttackRateCaption)
+                && _immortalAddresses.ContainsKey(AttackAcquireRangeCaption)
+                && _immortalAddresses.ContainsKey(AttackOneRangeCaption)
+                && _immortalAddresses.ContainsKey(AttackOneCooldownCaption);
+        }
+
+        private void ForceWriteImmortalValues()
+        {
+            if (_currentGameContext == null || !HasAllImmortalAddresses())
+                return;
+
+            using (WindowsApi.ProcessMemory mem = new WindowsApi.ProcessMemory(_currentGameContext.ProcessId))
+            {
+                WriteImmortalFloat(mem, AttackRateCaption, 5.0f);
+                WriteImmortalFloat(mem, AttackAcquireRangeCaption, 4000.0f);
+                WriteImmortalFloat(mem, AttackOneRangeCaption, 4000.0f);
+                WriteImmortalFloat(mem, AttackOneCooldownCaption, 0.2f);
+            }
+        }
+
+        private void WriteImmortalFloat(WindowsApi.ProcessMemory mem, string caption, float value)
+        {
+            mem.WriteFloat((IntPtr)_immortalAddresses[caption], value);
+        }
+
+        private void ImmortalTimer_Tick(object sender, EventArgs e)
+        {
+            try
+            {
+                ForceWriteImmortalValues();
+            }
+            catch (WindowsApi.BadProcessIdException ex)
+            {
+                StopImmortalMode();
+                ReportProcessIdFailure(ex.ProcessId);
+            }
+            catch (Exception ex)
+            {
+                StopImmortalMode();
+                ReportUnknownFailure(ex.Message);
+            }
+        }
+
         /************************************************************************/
         /* Exception UI                                                         */
         /************************************************************************/
+        private void SetImmortalStatus(string message)
+        {
+            labGameScanState.Text = message;
+            Text = ImmortalButtonText + " - " + message;
+        }
+
         private void ReportEnterDebugFailure()
         {
-            labGameScanState.Text = "请以管理员身份运行";
+            SetImmortalStatus("请以管理员身份运行");
         }
 
         private void ReportNoGameFoundFailure()
         {
-            labGameScanState.Text = "游戏未运行，运行游戏后单击“查找游戏”";
+            SetImmortalStatus("游戏未运行，运行游戏后单击按钮");
         }
 
         private void ReportUnknownFailure(string message)
         {
-            labGameScanState.Text = "发生未知错误：" + message;
+            SetImmortalStatus("发生未知错误：" + message);
         }
 
         private void ReportProcessIdFailure(int processId)
         {
-            labGameScanState.Text = "错误的进程ID："
-                + processId.ToString();
+            SetImmortalStatus("错误的进程ID："
+                + processId.ToString());
         }
 
         private void ReportVersionFailure(int processId, string version)
         {
-            labGameScanState.Text = "游戏已运行，但版本（"
+            SetImmortalStatus("游戏已运行，但版本（"
                 + version
-                + "）不被支持";
+                + "）不被支持");
         }
 
         private void ReportVersionOk(int processId, string version)
         {
-            labGameScanState.Text = "游戏已运行("
+            SetImmortalStatus("游戏已运行("
                 + processId.ToString()
                 + ")，版本："
                 + version
-                + "（支持）";
+                + "（支持）");
         }
 
         /************************************************************************/
