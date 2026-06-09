@@ -1,7 +1,6 @@
 name: Build and Release War3Trainer
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - 'v*' 
@@ -30,27 +29,9 @@ jobs:
       run: msbuild War3Trainer.sln /p:Configuration=Release /p:Platform="Any CPU"
 
     - name: Create ZIP Archive
-      shell: powershell
-      run: |
-        $releaseDir = Join-Path $PWD 'War3Trainer\bin\Release'
-        if (-not (Test-Path $releaseDir)) {
-          throw "Release output not found: $releaseDir"
-        }
-        if (Test-Path .\War3Trainer-Release.zip) {
-          Remove-Item .\War3Trainer-Release.zip -Force
-        }
-        Compress-Archive -Path (Join-Path $releaseDir '*') -DestinationPath .\War3Trainer-Release.zip -Force
-        Get-Item .\War3Trainer-Release.zip
-
-    - name: Upload Build Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: War3Trainer-Release
-        path: War3Trainer-Release.zip
-        if-no-files-found: error
+      run: Compress-Archive -Path War3Trainer\bin\Release\* -DestinationPath War3Trainer-Release.zip
 
     - name: Publish to GitHub Releases
-      if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v2
       with:
         files: War3Trainer-Release.zip
